@@ -1,4 +1,4 @@
-import { readTextFile, writeTextFile, exists, createDir, BaseDirectory } from '@tauri-apps/api/fs';
+import { readTextFile, writeTextFile, exists, createDir } from '@tauri-apps/api/fs';
 import { homeDir, join, dirname } from '@tauri-apps/api/path';
 import dayjs from 'dayjs';
 
@@ -20,10 +20,6 @@ export const chatModelPath = async (): Promise<string> => {
   return join(await chatRoot(), CHAT_MODEL_JSON);
 }
 
-// export const chatModelSyncPath = async (): Promise<string> => {
-//   return join(await chatRoot(), CHAT_MODEL_SYNC_JSON);
-// }
-
 export const chatPromptsPath = async (): Promise<string> => {
   return join(await chatRoot(), CHAT_PROMPTS_CSV);
 }
@@ -32,10 +28,16 @@ type readJSONOpts = { defaultVal?: Record<string, any>, isRoot?: boolean, isList
 export const readJSON = async (path: string, opts: readJSONOpts = {}) => {
   const { defaultVal = {}, isRoot = false, isList = false } = opts;
   const root = await chatRoot();
-  const file = await join(isRoot ? '' : root, path);
+  let file = path;
+
+  if (!isRoot) {
+    file = await join(root, path);
+  }
 
   if (!await exists(file)) {
-    await createDir(await dirname(file), { recursive: true });
+    if (await dirname(file) !== root) {
+      await createDir(await dirname(file), { recursive: true });
+    }
     await writeTextFile(file, isList ? '[]' : JSON.stringify({
       name: 'ChatGPT',
       link: 'https://github.com/lencx/ChatGPT',
@@ -52,12 +54,16 @@ export const readJSON = async (path: string, opts: readJSONOpts = {}) => {
 
 type writeJSONOpts = { dir?: string, isRoot?: boolean };
 export const writeJSON = async (path: string, data: Record<string, any>, opts: writeJSONOpts = {}) => {
-  const { isRoot = false, dir = '' } = opts;
+  const { isRoot = false } = opts;
   const root = await chatRoot();
-  const file = await join(isRoot ? '' : root, path);
+  let file = path;
+
+  if (!isRoot) {
+    file = await join(root, path);
+  }
 
   if (isRoot && !await exists(await dirname(file))) {
-    await createDir(await join('.chatgpt', dir), { dir: BaseDirectory.Home });
+    await createDir(await dirname(file), { recursive: true });
   }
 
   await writeTextFile(file, JSON.stringify(data, null, 2));
